@@ -5,9 +5,29 @@ import json
 from datetime import datetime
 import textwrap
 import time
+import argparse
+import os
+
+# --- Argument Parsing ---
+parser = argparse.ArgumentParser(description="Process a basketball video to overlay player stats and information.")
+parser.add_argument('--video-path', type=str, required=True, help="Path to the input video file (e.g., final_ball.mp4).")
+parser.add_argument('--data-path', type=str, required=True, help="Path to the JSON data file (e.g., ball.json).")
+parser.add_argument('--output-path', type=str, required=True, help="Path to the output directory where the processed video will be saved.")
+args = parser.parse_args()
+
+# --- Validate and prepare paths ---
+if not os.path.isfile(args.video_path):
+    print(f"Error: Video file not found at {args.video_path}")
+    exit()
+if not os.path.isfile(args.data_path):
+    print(f"Error: Data file not found at {args.data_path}")
+    exit()
+if not os.path.isdir(args.output_path):
+    print(f"Error: Output directory not found at {args.output_path}. Please create it or provide a valid path.")
+    exit()
 
 # Load shot data from JSON
-with open('ball.json', 'r') as f:
+with open(args.data_path, 'r') as f:
     shot_data = json.load(f)
 
 # Initialize MediaPipe Pose
@@ -18,17 +38,28 @@ pose = mp_pose.Pose(
 )
 
 # Open the video files
-process_video_path = '/Users/thorfinn/Developer/tidbit-script/final_ball.mov'
-display_video_path = 'final_ball.mp4'
+# Assuming the same video is used for both processing and display, as per the argument.
+# If a separate low-res video is needed for processing, the script logic or arguments might need adjustment.
+process_video_path = args.video_path
+display_video_path = args.video_path
 
-# Open processing video (lower res)
+# Open processing video
 process_cap = cv2.VideoCapture(process_video_path)
+if not process_cap.isOpened():
+    print(f"Error: Could not open video file for processing at {process_video_path}")
+    exit()
 process_fps = int(process_cap.get(cv2.CAP_PROP_FPS))
 process_width = int(process_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 process_height = int(process_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-# Open display video (higher res)
+# Open display video
 display_cap = cv2.VideoCapture(display_video_path)
+if not display_cap.isOpened():
+    print(f"Error: Could not open video file for display at {display_video_path}")
+    # Attempt to release the process_cap if it was opened
+    if process_cap.isOpened():
+        process_cap.release()
+    exit()
 display_fps = int(display_cap.get(cv2.CAP_PROP_FPS))
 display_width = int(display_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 display_height = int(display_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -285,7 +316,10 @@ cv2.destroyAllWindows()
 print("Creating final video...")
 
 # Create the final video at normal speed
-final_output_path = 'final.mp4'
+output_video_name = "processed_video.mp4" # Default name for the output file
+# Construct the full output path by joining the output directory and the video name
+final_output_path = os.path.join(args.output_path, output_video_name)
+
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 final_out = cv2.VideoWriter(final_output_path, fourcc, display_fps, (display_width, display_height))
 
